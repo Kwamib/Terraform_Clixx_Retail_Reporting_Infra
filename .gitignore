@@ -41,3 +41,5 @@ crash.log
 *.log
 
 userdata.sh
+assume-role2.sh
+.terraform.lock.hcl

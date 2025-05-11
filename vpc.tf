@@ -11,6 +11,7 @@ resource "aws_subnet" "public_subnets" {
   for_each = toset(var.public_subnet_cidr)
   vpc_id   = aws_vpc.clixx_vpc.id
   cidr_block = each.key
+  availability_zone = lookup(var.az_mapping, each.key, var.default_az)
   map_public_ip_on_launch = true
 
   tags = {
@@ -19,6 +20,7 @@ resource "aws_subnet" "public_subnets" {
     Type        = "Public"
   }
 }
+
 
 # Create Private Subnets Dynamically
 resource "aws_subnet" "private_subnets" {
@@ -45,6 +47,14 @@ resource "aws_security_group" "public_sg" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 2049              # NFS Port for EFS
+    to_port     = 2049
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]   # Example CIDR for private subnet (adjust as needed)
+    description = "Allow EFS (NFS) traffic from private network"
   }
 
   ingress {
@@ -93,7 +103,6 @@ resource "aws_route_table_association" "public_rta" {
   route_table_id = aws_route_table.public_rt.id
 }
 
-# NAT Gateway for Private Subnets
 # NAT Gateway for Private Subnets
 resource "aws_eip" "nat_eip" {
   domain = "vpc"  # Updated for NAT Gateway EIP
