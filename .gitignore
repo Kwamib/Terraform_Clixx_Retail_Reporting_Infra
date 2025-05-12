@@ -43,3 +43,7 @@ crash.log
 userdata.sh
 assume-role2.sh
 .terraform.lock.hcl
+data.tf
+ssm_parameters.tf
+
+
