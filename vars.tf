@@ -10,7 +10,7 @@ variable "aws_region" {
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string
-  default     = "10.0.0.0/16"  # Change if your network needs a different range
+  default     = "10.0.0.0/16" # Change if your network needs a different range
 }
 
 # Defines the IP ranges for the public Subnet
@@ -48,8 +48,8 @@ variable "aws_profile" {
 
 # Amazon Machine Image (AMI) id used to launch instance 
 variable "ami_id" {
-  description = "AMI ID for the EC2 instance"  
-  type        = string 
+  description = "AMI ID for the EC2 instance"
+  type        = string
   default     = "ami-085386e29e44dacd7"
 }
 
@@ -64,7 +64,7 @@ variable "instance_type" {
 variable "key_name" {
   description = "Name of the SSH Key Pair for EC2 access"
   type        = string
-  default     = "stack_devops_dev_kp"  # Ensure this key pair exists in AWS
+  default     = "stack_devops_dev_kp" # Ensure this key pair exists in AWS
 }
 
 # The name of the IAM Role for EC2 instance (can be customized)
@@ -85,34 +85,26 @@ variable "ssm_policy_name" {
 variable "ssm_parameter_prefix" {
   description = "Prefix for SSM Parameter Store (used for secrets)"
   type        = string
-  default     = "/clixx-app/*"  # Adjust to preferred prefix
+  default     = "/clixx/*" # Adjust to preferred prefix
 }
 
 variable "kms_key_id" {
   description = "KMS Key ID for SSM Parameter Encryption (optional)"
   type        = string
-  default     = ""  # Set this to KMS key ID if using KMS-encrypted parameters
+  default     = "" # Set this to KMS key ID if using KMS-encrypted parameters
 }
 
 variable "environment" {
   description = "Environment for the VPC (Development, Staging, Production)"
   type        = string
-  default     = "Development"  # Change to preferred default value
-}
-
-
-variable "subnet_id" {
-  description = "The ID of the subnet to associate with the Launch Template"
-  type        = string
-  default     = ""  # Set this dynamically if you want to automate
+  default     = "Development" # Change to preferred default value
 }
 
 variable "security_group_ids" {
   description = "List of security group IDs for the Launch Template"
   type        = list(string)
-  default     = []  # Set this dynamically if you want to automate
+  default     = [] # Set this dynamically if you want to automate
 }
-
 
 variable "iam_instance_profile" {
   description = "IAM Instance Profile name for EC2 instances"
@@ -172,3 +164,44 @@ variable "default_az" {
   type        = string
   default     = "us-east-1a"
 }
+
+
+variable "min_size" {
+  description = "Minimum number of instances in the Auto Scaling Group"
+  type        = number
+  default     = 1 # Set your default value
+}
+
+variable "desired_capacity" {
+  description = "Desired number of instances in the Auto Scaling Group"
+  type        = number
+  default     = 1 # Set your default value
+}
+
+variable "max_size" {
+  description = "Maximum number of instances in the Auto Scaling Group"
+  type        = number
+  default     = 3 # Set your default value
+}
+
+
+variable "trusted_ssh_cidr" {
+  description = "CIDR block for trusted IP for SSH access"
+  type        = string
+  default     = "0.0.0.0/0" # Allow from anywhere (change this to your IP for security)
+}
+
+
+variable "wp_home_url" {
+  description = "WordPress Home URL (e.g., https://clixx.stack-mayowa.com)"
+  type        = string
+  default     = "https://clixx.stack-mayowa.com" # Default value (can be changed)
+}
+
+
+variable "mount_point" {
+  description = "EFS Mount Point Directory"
+  type        = string
+  default     = "/var/www/html"
+}
+
