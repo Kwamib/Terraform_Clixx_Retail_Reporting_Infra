@@ -4,6 +4,7 @@
 *.tfvars
 *.tfvars.json
 *.tfvars.lock.hcl
+.terraform.lock.hcl
 
 # Ignore Terraform configuration override files (local overrides)
 override.tf
