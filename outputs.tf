@@ -29,3 +29,10 @@ output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer"
   value       = aws_lb.clixx_lb.dns_name
 }
+
+
+output "existing_efs_id" {
+  description = "ID of the Existing EFS File System from SSM"
+  value       = data.aws_ssm_parameter.efs_id.value
+  sensitive   = true
+}

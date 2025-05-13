@@ -130,13 +130,13 @@ resource "aws_eip" "nat_eip" {
 }
 
 
+# Single NAT Gateway (No for_each)
 resource "aws_nat_gateway" "clixx_nat" {
   allocation_id = aws_eip.nat_eip.id
-  subnet_id     = lookup(aws_subnet.public_subnets, "10.0.1.0/24").id # Specify one of your public subnets
+  subnet_id     = lookup(aws_subnet.public_subnets, "10.0.1.0/24").id
 }
 
-
-# Private Route Table
+# Single Private Route Table for All Private Subnets
 resource "aws_route_table" "private_rt" {
   vpc_id = aws_vpc.clixx_vpc.id
 
@@ -150,9 +150,46 @@ resource "aws_route_table" "private_rt" {
   }
 }
 
-# Private Route Table Association
+# Associate the Private Route Table with Each Private Subnet
 resource "aws_route_table_association" "private_rta" {
   for_each       = aws_subnet.private_subnets
   subnet_id      = each.value.id
   route_table_id = aws_route_table.private_rt.id
+}
+
+
+
+# Security Group for Load Balancer
+resource "aws_security_group" "clixx_alb_sg" {
+  name        = "clixx-alb-sg"
+  description = "Security group for ALB (Load Balancer)"
+  vpc_id      = aws_vpc.clixx_vpc.id
+
+  ingress {
+    description = "Allow HTTP from anywhere"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Allow HTTPS from anywhere"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "Allow all outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "clixx-alb-sg"
+  }
 }
