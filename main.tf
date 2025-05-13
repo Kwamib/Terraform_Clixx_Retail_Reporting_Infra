@@ -157,10 +157,41 @@ resource "null_resource" "validate_userdata_vars" {
 }
 
 # Load Balancer Listener
-resource "aws_lb_listener" "clixx_listener" {
+/* resource "aws_lb_listener" "clixx_listener" {
   load_balancer_arn = aws_lb.clixx_lb.arn
   port              = 80
   protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.clixx_web_tg.arn
+  }
+}
+ */
+
+ # HTTP Listener (Redirects to HTTPS)
+resource "aws_lb_listener" "clixx_http_listener" {
+  load_balancer_arn = aws_lb.clixx_lb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+    redirect {
+      protocol = "HTTPS"
+      port     = "443"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# HTTPS Listener (Secure with SSL)
+resource "aws_lb_listener" "clixx_https_listener" {
+  load_balancer_arn = aws_lb.clixx_lb.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08" # Recommended SSL Policy
+  certificate_arn   = "arn:aws:acm:us-east-1:957573079780:certificate/f463c49f-3502-4ffc-87bf-ca78c2219a3d" # Your SSL Certificate ARN
 
   default_action {
     type             = "forward"
