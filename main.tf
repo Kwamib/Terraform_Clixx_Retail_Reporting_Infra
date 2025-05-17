@@ -163,6 +163,20 @@ resource "aws_lb_listener" "clixx_listener" {
 }
 
 
+# HTTPS Listener for the load balancer using existing certificate
+resource "aws_lb_listener" "clixx_listener_https" {
+  load_balancer_arn = aws_lb.clixx_lb.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = data.aws_acm_certificate.clixx_cert.arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.clixx_web_tg.arn
+  }
+}
+
 # Target Group
 resource "aws_lb_target_group" "clixx_web_tg" {
   name        = var.target_group_name
