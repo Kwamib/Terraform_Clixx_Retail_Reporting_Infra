@@ -52,7 +52,7 @@ resource "aws_launch_template" "clixx_web_app" {
   # Network Configuration 
   network_interfaces {
     associate_public_ip_address = true # Auto-assign Public IP (for public subnet)
-    subnet_id                   = values(aws_subnet.public_subnets)[0].id
+    #subnet_id                   = values(aws_subnet.public_subnets)[0].id
     security_groups             = [aws_security_group.public_sg.id] # Existing SG
   }
 
@@ -91,6 +91,45 @@ resource "aws_launch_template" "clixx_web_app" {
       delete_on_termination = true  # Automatically delete the volume when instance is terminated
     }
   }
+
+  # Additional EBS volumes for LVM
+  block_device_mappings {
+    device_name = "/dev/sdb"
+    ebs {
+      volume_size           = 8
+      volume_type           = "gp2"
+      delete_on_termination = true
+    }
+  }
+  
+  block_device_mappings {
+    device_name = "/dev/sdc"
+    ebs {
+      volume_size           = 8
+      volume_type           = "gp2"
+      delete_on_termination = true
+    }
+  }
+  
+  block_device_mappings {
+    device_name = "/dev/sdd"
+    ebs {
+      volume_size           = 8
+      volume_type           = "gp2"
+      delete_on_termination = true
+    }
+  }
+  
+  block_device_mappings {
+    device_name = "/dev/sde"
+    ebs {
+      volume_size           = 8
+      volume_type           = "gp2"
+      delete_on_termination = true
+    }
+  }
+
+
 }
 
 
@@ -134,7 +173,7 @@ resource "aws_lb_target_group" "clixx_web_tg" {
 
   health_check {
     protocol            = "HTTP"
-    path                = "/"
+    path                = "/healthcheck.html"
     matcher             = "200-299"
     interval            = 60
     timeout             = 15
@@ -260,9 +299,8 @@ resource "aws_sns_topic" "cloudwatch_alarms_topic" {
 resource "aws_sns_topic_subscription" "alarm_subscription" {
   topic_arn = aws_sns_topic.cloudwatch_alarms_topic.arn
   protocol  = "email"
-  endpoint  = "your-email@example.com" # 🔔 Replace with your email
+  endpoint  = "your-email@example.com" #Replace with email
 }
-
 
 
 
@@ -280,7 +318,7 @@ resource "aws_cloudwatch_dashboard" "clixx_dashboard" {
         properties = {
           view   = "timeSeries",
           title  = "CPU Utilization (Auto Scaling Group)",
-          region = "us-east-1",
+          region = var.aws_region,
           metrics = [
             ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${aws_autoscaling_group.clixx_asg.name}"]
           ],
@@ -313,7 +351,7 @@ resource "aws_cloudwatch_dashboard" "clixx_dashboard" {
         properties = {
           view   = "timeSeries",
           title  = "Unhealthy Hosts (ALB Target Group)",
-          region = "us-east-1",
+          region = var.aws_region,
           metrics = [
             ["AWS/ApplicationELB", "UnHealthyHostCount", "LoadBalancer", "${aws_lb.clixx_lb.name}", "TargetGroup", "${aws_lb_target_group.clixx_web_tg.name}"]
           ],
@@ -330,7 +368,7 @@ resource "aws_cloudwatch_dashboard" "clixx_dashboard" {
         properties = {
           view   = "timeSeries",
           title  = "Request Count (ALB)",
-          region = "us-east-1",
+          region = var.aws_region,
           metrics = [
             ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${aws_lb.clixx_lb.name}"]
           ],
@@ -347,7 +385,7 @@ resource "aws_cloudwatch_dashboard" "clixx_dashboard" {
         properties = {
           view   = "timeSeries",
           title  = "Healthy Hosts (ALB Target Group)",
-          region = "us-east-1",
+          region = var.aws_region,
           metrics = [
             ["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", "${aws_lb.clixx_lb.name}", "TargetGroup", "${aws_lb_target_group.clixx_web_tg.name}"]
           ],
