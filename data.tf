@@ -86,3 +86,10 @@ data "aws_subnets" "public_subnets" {
     values = ["Public"] # Ensure the Type tag is set in the subnet creation
   }
 }
+
+# Data source for existing ACM certificate
+data "aws_acm_certificate" "clixx_cert" {
+  domain      = "*.stack-mayowa.com"  # The domain name on the certificate
+  statuses    = ["ISSUED"]                # Only get certificates that are active
+  most_recent = true                     # In case there are multiple matching certificates
+}
