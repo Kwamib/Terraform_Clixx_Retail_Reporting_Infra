@@ -1,6 +1,9 @@
 # Create a VPC
 resource "aws_vpc" "clixx_vpc" {
-  cidr_block = var.vpc_cidr
+  cidr_block           = var.vpc_cidr
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
   tags = {
     Name = "CliXX-VPC"
   }
@@ -21,33 +24,23 @@ resource "aws_subnet" "public_subnets" {
   }
 }
 
-# Automatically Collect IDs of the Created Public Subnets
-data "aws_subnets" "public_subnets" {
-  filter {
-    name   = "vpc-id"
-    values = [aws_vpc.clixx_vpc.id] # Using dynamically created VPC ID
-  }
-
-  filter {
-    name   = "tag:Type"
-    values = ["Public"] # Ensure the Type tag is set in the subnet creation
-  }
-}
 
 
-# Create Private Subnets Dynamically
+# Create Private Subnets Dynamically with proper AZ assignment
 resource "aws_subnet" "private_subnets" {
-  for_each   = toset(var.private_subnet_cidr)
-  vpc_id     = aws_vpc.clixx_vpc.id
-  cidr_block = each.key
+  for_each = local.private_subnet_map # Use the local map from data.tf
+
+  vpc_id            = aws_vpc.clixx_vpc.id
+  cidr_block        = each.value
+  availability_zone = each.key # This assigns specific AZ to each subnet
 
   tags = {
     Name        = "CliXX-Private-Subnet-${each.key}"
     Environment = var.environment
     Type        = "Private"
+    AZ          = each.key
   }
 }
-
 
 resource "aws_security_group" "public_sg" {
   name        = "clixx-public-sg"
@@ -155,4 +148,77 @@ resource "aws_route_table_association" "private_rta" {
   for_each       = aws_subnet.private_subnets
   subnet_id      = each.value.id
   route_table_id = aws_route_table.private_rt.id
+}
+
+
+# Security Group for EFS
+resource "aws_security_group" "efs_sg" {
+  name_prefix = "clixx-efs-sg"
+  description = "Security group for EFS access"
+  vpc_id      = aws_vpc.clixx_vpc.id
+
+  # Allow NFS traffic from anywhere in the VPC
+  ingress {
+    description = "NFS from VPC"
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr] # Allow from entire VPC
+  }
+
+  # Keep the existing rule too
+  ingress {
+    description     = "NFS from web tier"
+    from_port       = 2049
+    to_port         = 2049
+    protocol        = "tcp"
+    security_groups = [aws_security_group.public_sg.id]
+  }
+
+  # Allow all outbound traffic
+  egress {
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"] # Your VPC CIDR
+  }
+
+  tags = {
+    Name        = "CliXX-EFS-SG"
+    Environment = var.environment
+  }
+}
+
+# EFS Access Point (optional - for better security)
+resource "aws_efs_access_point" "clixx_efs_ap" {
+  file_system_id = aws_efs_file_system.clixx_efs.id
+
+  root_directory {
+    path = "/app"
+    creation_info {
+      owner_gid   = 1000
+      owner_uid   = 1000
+      permissions = "0755"
+    }
+  }
+
+  posix_user {
+    gid = 1000
+    uid = 1000
+  }
+
+  tags = {
+    Name        = "CliXX-EFS-AccessPoint"
+    Environment = var.environment
+  }
+}
+
+
+resource "aws_vpc_endpoint" "efs" {
+  vpc_id              = aws_vpc.clixx_vpc.id
+  service_name        = "com.amazonaws.${var.aws_region}.elasticfilesystem"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = [for subnet in aws_subnet.private_subnets : subnet.id]
+  security_group_ids  = [aws_security_group.efs_sg.id]
+  private_dns_enabled = true
 }

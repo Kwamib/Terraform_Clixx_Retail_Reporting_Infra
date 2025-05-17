@@ -1,67 +1,40 @@
 
 # ================================
-# AWS IAM Role Configuration
+# EFS Configuration
 # ================================
-# This IAM Role allows EC2 instances to securely read SSM Parameters
 
-resource "aws_iam_role" "clixx_ec2_role" {
-  name = var.iam_role_name
-  assume_role_policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Effect" : "Allow",
-        "Principal" : {
-          "Service" : "ec2.amazonaws.com"
-        },
-        "Action" : "sts:AssumeRole"
-      }
-    ]
-  })
+# EFS File System
+resource "aws_efs_file_system" "clixx_efs" {
+  creation_token = "clixx-efs-${var.environment}"
+  encrypted      = true
+
+  # Performance settings
+  performance_mode = "generalPurpose" # or "maxIO" for high performance
+  throughput_mode  = "bursting"       # or "provisioned" if you need guaranteed throughput
+
+  # Lifecycle policy for cost optimization
+  lifecycle_policy {
+    transition_to_ia = "AFTER_30_DAYS"
+  }
+
+  tags = {
+    Name        = "CliXX-EFS"
+    Environment = var.environment
+    Application = "CliXX Web App"
+    OwnerEmail  = "mayowa.k.babatola@gmail.com"
+    StackTeam   = "Stackcloud13"
+  }
 }
 
-# SSM Read Policy for EC2
-# - Allows EC2 instances to securely read SSM Parameters
-# - Policy is restricted to the specified SSM Parameter prefix
-resource "aws_iam_policy" "ssm_read_policy" {
-  name        = var.ssm_policy_name
-  description = "Allow EC2 instances to securely read SSM Parameters with KMS Decrypt"
+# EFS Mount Targets (one in each private subnet)
+resource "aws_efs_mount_target" "clixx_efs_mount" {
+  for_each = aws_subnet.private_subnets
 
-  policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "ssm:GetParameter",
-          "ssm:GetParameters",
-          "ssm:GetParametersByPath"
-        ],
-        "Resource" : "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.ssm_parameter_prefix}/*"
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : "kms:Decrypt",
-        "Resource" : "*"
-      }
-    ]
-  })
+  file_system_id  = aws_efs_file_system.clixx_efs.id
+  subnet_id       = each.value.id
+  security_groups = [aws_security_group.efs_sg.id]
 }
 
-
-
-
-# Attach SSM Policy to IAM Role
-resource "aws_iam_role_policy_attachment" "attach_ssm_policy" {
-  role       = aws_iam_role.clixx_ec2_role.name
-  policy_arn = aws_iam_policy.ssm_read_policy.arn
-}
-
-# IAM Instance Profile for EC2
-resource "aws_iam_instance_profile" "clixx_iam_instance_profile" {
-  name = "clixx-ec2-ssm-profile"
-  role = aws_iam_role.clixx_ec2_role.name
-}
 
 
 # ================================
@@ -76,31 +49,22 @@ resource "aws_launch_template" "clixx_web_app" {
   instance_type = var.instance_type
   key_name      = var.key_name
 
-  # IAM Instance Profile for Secure SSM Access
-  iam_instance_profile {
-    name = aws_iam_instance_profile.clixx_iam_instance_profile.name
-  }
-
   # Network Configuration 
   network_interfaces {
     associate_public_ip_address = true # Auto-assign Public IP (for public subnet)
     subnet_id                   = values(aws_subnet.public_subnets)[0].id
-    #security_groups             = var.security_group_ids
-    security_groups = [aws_security_group.public_sg.id] # Existing SG
+    security_groups             = [aws_security_group.public_sg.id] # Existing SG
+  }
+
+  iam_instance_profile {
+    name = data.aws_iam_instance_profile.engineer.name
   }
 
   # Secure Startup Configuration (User Data)
-  #user_data = base64encode(file("${path.module}/userdata.sh"))
-
   user_data = base64encode(
     templatefile("${path.module}/userdata.sh", {
-      ssm_db_host     = data.aws_ssm_parameter.db_host.value,     # DB Host
-      ssm_db_name     = data.aws_ssm_parameter.wp_db_name.value,     # DB Name
-      ssm_db_user     = data.aws_ssm_parameter.wp_db_user.value,     # DB User
-      ssm_db_password = data.aws_ssm_parameter.clixx_db_password.value, # DB Password
-      EFS_ID          = data.aws_ssm_parameter.efs_id.value,  #EFS_ID
-      AWS_REGION      = var.aws_region,     # AWS_REGION  
-      MOUNT_POINT     = var.mount_point
+      EFS_ID      = aws_efs_file_system.clixx_efs.dns_name #EFS_ID
+      MOUNT_POINT = "/var/www/html"
     })
   )
 
@@ -145,16 +109,7 @@ resource "aws_lb" "clixx_lb" {
   }
 }
 
-# ================================
-# User Data Validation (Python)
-# ================================
-resource "null_resource" "validate_userdata_vars" {
-  depends_on = [aws_launch_template.clixx_web_app] # Ensure template is defined
 
-  provisioner "local-exec" {
-    command = "python3 ${path.module}/validate_userdata.py"
-  }
-}
 
 # Load Balancer Listener
 resource "aws_lb_listener" "clixx_listener" {
@@ -238,7 +193,6 @@ data "aws_instances" "clixx_asg_instances" {
 }
 
 
-
 # Scale Up Policy (High CPU)
 resource "aws_autoscaling_policy" "clixx_scale_up_policy" {
   name                   = "clixx-scale-up-policy"
@@ -268,7 +222,7 @@ resource "aws_cloudwatch_metric_alarm" "clixx_high_cpu_alarm" {
   namespace           = "AWS/EC2"
   period              = 60
   statistic           = "Average"
-  threshold           = 75  # 75% CPU Utilization
+  threshold           = 75 # 75% CPU Utilization
   alarm_description   = "Triggered when CPU exceeds 75% for 2 consecutive minutes."
   actions_enabled     = true
   dimensions = {
@@ -287,7 +241,7 @@ resource "aws_cloudwatch_metric_alarm" "clixx_low_cpu_alarm" {
   namespace           = "AWS/EC2"
   period              = 60
   statistic           = "Average"
-  threshold           = 30  # 30% CPU Utilization
+  threshold           = 30 # 30% CPU Utilization
   alarm_description   = "Triggered when CPU goes below 30% for 2 consecutive minutes."
   actions_enabled     = true
   dimensions = {
@@ -306,7 +260,7 @@ resource "aws_sns_topic" "cloudwatch_alarms_topic" {
 resource "aws_sns_topic_subscription" "alarm_subscription" {
   topic_arn = aws_sns_topic.cloudwatch_alarms_topic.arn
   protocol  = "email"
-  endpoint  = "your-email@example.com"  # 🔔 Replace with your email
+  endpoint  = "your-email@example.com" # 🔔 Replace with your email
 }
 
 
@@ -318,20 +272,20 @@ resource "aws_cloudwatch_dashboard" "clixx_dashboard" {
   dashboard_body = jsonencode({
     widgets = [
       {
-        type = "metric",
-        x = 0,
-        y = 0,
-        width = 12,
+        type   = "metric",
+        x      = 0,
+        y      = 0,
+        width  = 12,
         height = 6,
         properties = {
-          view = "timeSeries",
-          title = "CPU Utilization (Auto Scaling Group)",
+          view   = "timeSeries",
+          title  = "CPU Utilization (Auto Scaling Group)",
           region = "us-east-1",
           metrics = [
-            [ "AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${aws_autoscaling_group.clixx_asg.name}" ]
+            ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", "${aws_autoscaling_group.clixx_asg.name}"]
           ],
           period = 60,
-          stat = "Average",
+          stat   = "Average",
           annotations = {
             horizontal = [
               {
@@ -351,54 +305,54 @@ resource "aws_cloudwatch_dashboard" "clixx_dashboard" {
         }
       },
       {
-        type = "metric",
-        x = 0,
-        y = 7,
-        width = 12,
+        type   = "metric",
+        x      = 0,
+        y      = 7,
+        width  = 12,
         height = 6,
         properties = {
-          view = "timeSeries",
-          title = "Unhealthy Hosts (ALB Target Group)",
+          view   = "timeSeries",
+          title  = "Unhealthy Hosts (ALB Target Group)",
           region = "us-east-1",
           metrics = [
-            [ "AWS/ApplicationELB", "UnHealthyHostCount", "LoadBalancer", "${aws_lb.clixx_lb.name}", "TargetGroup", "${aws_lb_target_group.clixx_web_tg.name}" ]
+            ["AWS/ApplicationELB", "UnHealthyHostCount", "LoadBalancer", "${aws_lb.clixx_lb.name}", "TargetGroup", "${aws_lb_target_group.clixx_web_tg.name}"]
           ],
           period = 60,
-          stat = "Sum"
+          stat   = "Sum"
         }
       },
       {
-        type = "metric",
-        x = 13,
-        y = 0,
-        width = 12,
+        type   = "metric",
+        x      = 13,
+        y      = 0,
+        width  = 12,
         height = 6,
         properties = {
-          view = "timeSeries",
-          title = "Request Count (ALB)",
+          view   = "timeSeries",
+          title  = "Request Count (ALB)",
           region = "us-east-1",
           metrics = [
-            [ "AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${aws_lb.clixx_lb.name}" ]
+            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${aws_lb.clixx_lb.name}"]
           ],
           period = 60,
-          stat = "Sum"
+          stat   = "Sum"
         }
       },
       {
-        type = "metric",
-        x = 13,
-        y = 7,
-        width = 12,
+        type   = "metric",
+        x      = 13,
+        y      = 7,
+        width  = 12,
         height = 6,
         properties = {
-          view = "timeSeries",
-          title = "Healthy Hosts (ALB Target Group)",
+          view   = "timeSeries",
+          title  = "Healthy Hosts (ALB Target Group)",
           region = "us-east-1",
           metrics = [
-            [ "AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", "${aws_lb.clixx_lb.name}", "TargetGroup", "${aws_lb_target_group.clixx_web_tg.name}" ]
+            ["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", "${aws_lb.clixx_lb.name}", "TargetGroup", "${aws_lb_target_group.clixx_web_tg.name}"]
           ],
           period = 60,
-          stat = "Average"
+          stat   = "Average"
         }
       }
     ]
