@@ -1,4 +1,5 @@
 
+
 # Defines region AWS would be deployed
 variable "aws_region" {
   description = "AWS Region to deploy resources"
@@ -67,13 +68,6 @@ variable "key_name" {
   default     = "stack_devops_dev_kp" # Ensure this key pair exists in AWS
 }
 
-# The name of the IAM Role for EC2 instance (can be customized)
-variable "iam_role_name" {
-  description = "Name of the IAM Role for EC2 instance"
-  type        = string
-  default     = "clixx-ec2-ssm-role"
-}
-
 # The name of the SSM Read Policy (can be customized)
 variable "ssm_policy_name" {
   description = "Name of the SSM Read Policy for EC2"
@@ -104,12 +98,6 @@ variable "security_group_ids" {
   description = "List of security group IDs for the Launch Template"
   type        = list(string)
   default     = [] # Set this dynamically if you want to automate
-}
-
-variable "iam_instance_profile" {
-  description = "IAM Instance Profile name for EC2 instances"
-  type        = string
-  default     = ""
 }
 
 variable "aws_access_key_id" {
@@ -150,12 +138,13 @@ variable "target_group_protocol" {
 }
 
 variable "az_mapping" {
-  description = "Mapping of subnets to Availability Zones"
+  description = "Map of CIDR blocks to availability zones"
   type        = map(string)
   default = {
     "10.0.1.0/24" = "us-east-1a"
-    "10.0.2.0/24" = "us-east-1b"
-    "10.0.3.0/24" = "us-east-1c"
+    "10.0.2.0/24" = "us-east-1a"
+    "10.0.3.0/24" = "us-east-1b"
+    "10.0.4.0/24" = "us-east-1b"
   }
 }
 
@@ -204,4 +193,3 @@ variable "mount_point" {
   type        = string
   default     = "/var/www/html"
 }
-

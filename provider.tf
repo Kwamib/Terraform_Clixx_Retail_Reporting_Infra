@@ -1,3 +1,4 @@
+
 provider "aws" {
   region = var.aws_region
 
@@ -6,6 +7,3 @@ provider "aws" {
   token      = var.aws_session_token
 }
 
-
-
-data "aws_caller_identity" "current" {}

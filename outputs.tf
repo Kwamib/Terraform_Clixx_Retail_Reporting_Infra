@@ -29,3 +29,36 @@ output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer"
   value       = aws_lb.clixx_lb.dns_name
 }
+
+# ==========================================
+# Outputs for Debugging
+# ==========================================
+
+# These outputs help debug and verify configuration
+output "debug_availability_zones" {
+  description = "Available Availability Zones being used"
+  value       = local.availability_zones
+}
+
+output "debug_account_info" {
+  description = "AWS Account information"
+  value = {
+    account_id = local.account_id
+    region     = var.aws_region
+    caller_arn = data.aws_caller_identity.current.arn
+  }
+}
+
+output "debug_subnet_configuration" {
+  description = "Subnet configuration being used"
+  value = {
+    public_subnets  = local.public_subnet_cidrs
+    private_subnets = local.private_subnet_cidrs
+  }
+  sensitive = false
+}
+output "efs_id" {
+  value = aws_efs_file_system.clixx_efs.dns_name
+}
+
+
