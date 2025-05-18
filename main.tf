@@ -149,16 +149,20 @@ resource "aws_lb" "clixx_lb" {
 }
 
 
-
 # Load Balancer Listener
+# Modified HTTP Listener to redirect to HTTPS
 resource "aws_lb_listener" "clixx_listener" {
   load_balancer_arn = aws_lb.clixx_lb.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.clixx_web_tg.arn
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
   }
 }
 
@@ -227,6 +231,42 @@ resource "aws_autoscaling_group" "clixx_asg" {
     propagate_at_launch = true
   }
 }
+
+
+
+# ROUTE 53 
+
+# Reference the hosted zone for stack-mayowa.com
+data "aws_route53_zone" "selected" {
+  name         = "stack-mayowa.com." # Don't forget the trailing dot
+  private_zone = false
+}
+
+# A record for clixx subdomain pointing to your load balancer
+resource "aws_route53_record" "clixx" {
+  zone_id = data.aws_route53_zone.selected.zone_id
+  name    = "clixx.stack-mayowa.com"
+  type    = "A"
+  
+  alias {
+    name                   = aws_lb.clixx_lb.dns_name
+    zone_id                = aws_lb.clixx_lb.zone_id
+    evaluate_target_health = true
+  }
+}
+
+# Optional: CNAME record for www.clixx subdomain
+resource "aws_route53_record" "www_clixx" {
+  zone_id = data.aws_route53_zone.selected.zone_id
+  name    = "www.clixx.stack-mayowa.com"
+  type    = "CNAME"
+  ttl     = "300"
+  records = ["clixx.stack-mayowa.com"]
+}
+
+
+
+
 
 # Collect the Instance IDs of the Auto Scaling Group dynamically
 data "aws_autoscaling_groups" "clixx_asg" {
