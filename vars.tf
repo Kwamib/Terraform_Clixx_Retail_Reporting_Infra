@@ -193,3 +193,23 @@ variable "mount_point" {
   type        = string
   default     = "/var/www/html"
 }
+
+
+# RDS Snapshot Variables
+variable "rds_snapshot_id" {
+  description = "The ID of the RDS snapshot to create the database from"
+  type        = string
+  default     = "clixx-production-snapshot-20240517" # Your specific snapshot ID
+}
+
+variable "db_instance_class" {
+  description = "The instance class for the RDS instance"
+  type        = string
+  default     = "db.m6g.large"
+}
+
+variable "snapshot_identifier" {
+  description = "The identifier of the DB snapshot to restore from"
+  type        = string
+  default     = "clixxdbsnapshot" # Based on your snapshot name from the image
+}

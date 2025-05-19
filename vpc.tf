@@ -55,6 +55,16 @@ resource "aws_security_group" "public_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Add this new ingress block
+  ingress {
+    description = "Allow HTTPS (Secure Web Traffic)"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
   ingress {
     description = "Allow EFS (NFS) traffic from Private Network"
     from_port   = 2049
@@ -222,3 +232,34 @@ resource "aws_vpc_endpoint" "efs" {
   security_group_ids  = [aws_security_group.efs_sg.id]
   private_dns_enabled = true
 }
+
+
+# Security Group for the database
+resource "aws_security_group" "db_sg" {
+  name        = "clixx-db-sg-${var.environment}"
+  description = "Security group for CliXX database"
+  vpc_id      = aws_vpc.clixx_vpc.id
+
+  # Allow database traffic from web tier only
+  ingress {
+    from_port       = 3306 # MySQL port from snapshot
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.public_sg.id] # Allow access from web tier
+  }
+
+  # No direct outbound access needed for DB
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "CliXX-DB-SG"
+    Environment = var.environment
+  }
+}
+
+
