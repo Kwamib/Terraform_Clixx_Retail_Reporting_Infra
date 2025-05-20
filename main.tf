@@ -53,7 +53,7 @@ resource "aws_launch_template" "clixx_web_app" {
   network_interfaces {
     associate_public_ip_address = true # Auto-assign Public IP (for public subnet)
     #subnet_id                   = values(aws_subnet.public_subnets)[0].id
-    security_groups             = [aws_security_group.public_sg.id] # Existing SG
+    security_groups = [aws_security_group.public_sg.id] # Existing SG
   }
 
   iam_instance_profile {
@@ -63,8 +63,11 @@ resource "aws_launch_template" "clixx_web_app" {
   # Secure Startup Configuration (User Data)
   user_data = base64encode(
     templatefile("${path.module}/userdata.sh", {
-      EFS_ID      = aws_efs_file_system.clixx_efs.dns_name #EFS_ID
-      MOUNT_POINT = "/var/www/html"
+      EFS_ID            = aws_efs_file_system.clixx_efs.dns_name #EFS_ID
+      MOUNT_POINT       = "/var/www/html"
+      ENVIRONMENT       = var.environment
+      ENVIRONMENT_LOWER = local.env_name_normalized
+      REGION            = var.aws_region
     })
   )
 
@@ -101,7 +104,7 @@ resource "aws_launch_template" "clixx_web_app" {
       delete_on_termination = true
     }
   }
-  
+
   block_device_mappings {
     device_name = "/dev/sdc"
     ebs {
@@ -110,7 +113,7 @@ resource "aws_launch_template" "clixx_web_app" {
       delete_on_termination = true
     }
   }
-  
+
   block_device_mappings {
     device_name = "/dev/sdd"
     ebs {
@@ -119,7 +122,7 @@ resource "aws_launch_template" "clixx_web_app" {
       delete_on_termination = true
     }
   }
-  
+
   block_device_mappings {
     device_name = "/dev/sde"
     ebs {
@@ -233,7 +236,6 @@ resource "aws_autoscaling_group" "clixx_asg" {
 }
 
 
-
 # ROUTE 53 
 
 # Reference the hosted zone for stack-mayowa.com
@@ -247,7 +249,7 @@ resource "aws_route53_record" "clixx" {
   zone_id = data.aws_route53_zone.selected.zone_id
   name    = "clixx.stack-mayowa.com"
   type    = "A"
-  
+
   alias {
     name                   = aws_lb.clixx_lb.dns_name
     zone_id                = aws_lb.clixx_lb.zone_id
@@ -263,7 +265,6 @@ resource "aws_route53_record" "www_clixx" {
   ttl     = "300"
   records = ["clixx.stack-mayowa.com"]
 }
-
 
 
 

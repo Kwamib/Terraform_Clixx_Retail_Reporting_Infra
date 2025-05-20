@@ -62,3 +62,23 @@ output "efs_id" {
 }
 
 
+# Database-related outputs
+output "rds_endpoint" {
+  description = "The connection endpoint for the RDS database"
+  value       = aws_db_instance.clixx_db_from_snapshot.endpoint
+}
+
+output "rds_port" {
+  description = "The port on which the RDS database accepts connections"
+  value       = aws_db_instance.clixx_db_from_snapshot.port
+}
+
+output "rds_name" {
+  description = "The name of the RDS database"
+  value       = aws_db_instance.clixx_db_from_snapshot.identifier
+}
+
+output "ssm_db_endpoint_parameter" {
+  description = "The SSM parameter name that contains the RDS endpoint"
+  value       = aws_ssm_parameter.db_endpoint.name
+}

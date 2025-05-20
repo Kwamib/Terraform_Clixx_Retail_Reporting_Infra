@@ -59,6 +59,9 @@ locals {
 
   # Account ID for use in other resources
   account_id = data.aws_caller_identity.current.account_id
+
+  # Convert environment to lowercase and replace spaces with hyphens for resource naming
+  env_name_normalized = lower(replace(var.environment, " ", "-"))
 }
 
 # ==========================================
@@ -89,7 +92,14 @@ data "aws_subnets" "public_subnets" {
 
 # Data source for existing ACM certificate
 data "aws_acm_certificate" "clixx_cert" {
-  domain      = "*.stack-mayowa.com"  # The domain name on the certificate
-  statuses    = ["ISSUED"]                # Only get certificates that are active
-  most_recent = true                     # In case there are multiple matching certificates
+  domain      = "*.stack-mayowa.com" # The domain name on the certificate
+  statuses    = ["ISSUED"]           # Only get certificates that are active
+  most_recent = true                 # In case there are multiple matching certificates
+}
+
+
+# Data source to reference an existing AWS RDS snapshot
+data "aws_db_snapshot" "clixx_snapshot" {
+  db_snapshot_identifier = var.snapshot_identifier
+  most_recent            = true # Optional: set to true to use the most recent snapshot
 }
